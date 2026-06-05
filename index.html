@@ -83,10 +83,18 @@
   /* ── RACE LIVE ── */
   #race-canvas-container { flex: 1; position: relative; overflow: hidden; }
   #race-canvas { width: 100%; height: 100%; display: block; }
-  .race-hud { position: absolute; top: 12px; left: 12px; display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
-  .hud-card { background: rgba(10,51,82,.92); border: 1px solid #164e63; border-radius: 10px; padding: 10px 14px; font-size: 13px; min-width: 130px; }
-  .hud-card .hl { color: #7dd3fc; font-size: 11px; }
-  .hud-card .hv { font-size: 18px; font-weight: 700; }
+  .race-hud { position: absolute; top: 8px; left: 8px; pointer-events: auto; z-index: 10; min-width: 160px; max-width: 200px; }
+  .hud-mini { background: rgba(10,51,82,.95); border: 1px solid #164e63; border-radius: 10px; padding: 8px 12px; display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; flex-wrap: wrap; }
+  .hud-mini-item { display: flex; flex-direction: column; align-items: center; }
+  .hud-mini-item .hl { color: #7dd3fc; font-size: 9px; }
+  .hud-mini-item .hv { font-size: 13px; font-weight: 700; white-space: nowrap; }
+  .hud-toggle { color: #7dd3fc; font-size: 12px; margin-left: auto; }
+  .hud-detail { background: rgba(10,51,82,.95); border: 1px solid #164e63; border-radius: 10px; margin-top: 4px; overflow: hidden; transition: max-height .3s ease; max-height: 0; }
+  .hud-detail.open { max-height: 400px; }
+  .hud-card { padding: 8px 12px; font-size: 13px; border-bottom: 1px solid rgba(22,78,99,.4); }
+  .hud-card:last-child { border-bottom: none; }
+  .hud-card .hl { color: #7dd3fc; font-size: 10px; }
+  .hud-card .hv { font-size: 16px; font-weight: 700; }
   .race-bottom { background: rgba(7,30,48,.97); border-top: 1px solid #164e63; padding: 12px 16px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
   .boost-btn { padding: 10px 20px; border-radius: 8px; border: none; cursor: pointer; font-weight: 600; font-size: 14px; transition: all .2s; }
   .boost-btn.ready    { background: #fbbf24; color: #1a0a00; }
@@ -254,15 +262,24 @@
     <div id="race-canvas-container">
       <canvas id="race-canvas"></canvas>
       <div class="race-hud">
-        <div class="hud-card"><div class="hl">Vitesse</div><div class="hv" id="h-speed">— kn</div></div>
-        <div class="hud-card"><div class="hl">Cap</div><div class="hv" id="h-head">—°</div></div>
-        <div class="hud-card"><div class="hl">Vent</div><div class="hv" id="h-wind">—</div><div class="hl" id="h-wdir"></div></div>
-        <div class="hud-card"><div class="hl">Waypoint</div><div class="hv" id="h-wp">—/—</div><div class="hl" id="h-dist"></div></div>
-        <div class="hud-card"><div class="hl">Durée</div><div class="hv" id="h-dur">0s</div></div>
-        <div class="hud-card" id="hud-wind-cd">
-          <div class="hl">🌬️ Prochain vent</div>
-          <div class="hv" id="h-windcd" style="font-size:15px">—</div>
-          <div class="hl" id="h-windcd-bar" style="margin-top:4px"></div>
+        <!-- Barre mini toujours visible — clic pour déplier -->
+        <div class="hud-mini" onclick="toggleHud()">
+          <div class="hud-mini-item"><div class="hl">Vitesse</div><div class="hv" id="h-speed">— kn</div></div>
+          <div class="hud-mini-item"><div class="hl">WP</div><div class="hv" id="h-wp">—/—</div></div>
+          <div class="hud-mini-item"><div class="hl">Vent</div><div class="hv" id="h-wind">—</div></div>
+          <div class="hud-mini-item"><div class="hl">Prochain</div><div class="hv" id="h-windcd" style="font-size:12px">—</div></div>
+          <span class="hud-toggle" id="hud-arrow">▼</span>
+        </div>
+        <!-- Détail dépliable -->
+        <div class="hud-detail" id="hud-detail">
+          <div class="hud-card"><div class="hl">Cap</div><div class="hv" id="h-head">—°</div></div>
+          <div class="hud-card"><div class="hl">Vent direction</div><div class="hv" id="h-wdir" style="font-size:13px">—</div></div>
+          <div class="hud-card"><div class="hl">Distance waypoint</div><div class="hv" id="h-dist" style="font-size:13px">—</div></div>
+          <div class="hud-card"><div class="hl">Durée</div><div class="hv" id="h-dur">0s</div></div>
+          <div class="hud-card" id="hud-wind-cd">
+            <div class="hl">🌬️ Prochain vent</div>
+            <div class="hl" id="h-windcd-bar" style="margin-top:4px"></div>
+          </div>
         </div>
       </div>
       <div class="ranking-side" id="live-rank"></div>
@@ -275,53 +292,58 @@
         </div>
       </div>
     </div>
-    <div class="race-bottom">
-      <!-- Voiles -->
-      <div class="sail-panel">
-        <div class="sail-label">⛵ Voile active</div>
-        <div class="sail-btns">
-          <button class="sail-btn" id="sail-gv"  onclick="setSail('grandvoile')">🔺 Grand-voile</button>
-          <button class="sail-btn" id="sail-gen" onclick="setSail('genois')">◼ Génois</button>
-          <button class="sail-btn" id="sail-spi" onclick="setSail('spi')">🔷 Spi</button>
+    <div class="race-bottom" style="flex-direction:column;padding:8px 12px;gap:6px">
+
+      <!-- Ligne 1 : toujours visible -->
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <!-- Voiles compactes -->
+        <div class="sail-btns" style="gap:4px">
+          <button class="sail-btn" id="sail-gv"  onclick="setSail('grandvoile')" style="padding:5px 8px;font-size:12px">🔺 GV</button>
+          <button class="sail-btn" id="sail-gen" onclick="setSail('genois')" style="padding:5px 8px;font-size:12px">◼ Gén</button>
+          <button class="sail-btn" id="sail-spi" onclick="setSail('spi')" style="padding:5px 8px;font-size:12px">🔷 Spi</button>
         </div>
-        <div class="optimum-bar">
-          <div class="optimum-dot" id="opt-dot"></div>
-          <span id="opt-label" style="color:#7dd3fc"></span>
-          <span id="opt-bonus" style="margin-left:4px;font-weight:700"></span>
+        <div class="optimum-dot" id="opt-dot" style="flex-shrink:0"></div>
+        <span id="opt-bonus" style="font-weight:700;font-size:13px"></span>
+
+        <div style="width:1px;background:#164e63;align-self:stretch"></div>
+
+        <!-- Boost compact -->
+        <div style="flex:1;min-width:120px">
+          <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:2px"><span>⚡ Boost</span><span id="epct">0%</span></div>
+          <div class="energy-bg"><div class="energy-fill" id="ebar" style="width:0%"></div></div>
+        </div>
+        <button class="boost-btn locked" id="boost-btn" onclick="handleBoost()" style="padding:7px 12px;font-size:13px">⚡</button>
+
+        <!-- Bouton dépli détails -->
+        <button onclick="toggleControls()" style="background:rgba(22,78,99,.5);border:1px solid #164e63;color:#7dd3fc;padding:6px 10px;border-radius:6px;cursor:pointer;font-size:12px" id="ctrl-arrow">⚙️ ▼</button>
+        <button class="btn btn-sm btn-gray" onclick="if(confirm('Quitter ?')) exitRace()" style="padding:6px 10px">🚪</button>
+        <button class="btn btn-sm" style="background:#7c3aed;padding:6px 10px" onclick="forceFinishRace()">🏁</button>
+      </div>
+
+      <!-- Ligne 2 : trim dépliable -->
+      <div id="ctrl-detail" style="display:none;border-top:1px solid #164e63;padding-top:6px">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <div class="trim-panel" style="flex:1">
+            <div style="display:flex;align-items:center;gap:6px">
+              <span style="font-size:11px;color:#7dd3fc">🎚️</span>
+              <span style="font-size:11px;color:#7dd3fc">-10</span>
+              <input type="range" class="trim-slider" id="trim-slider" min="-10" max="10" value="0" step="1" oninput="handleTrim(this.value)" style="flex:1">
+              <span style="font-size:11px;color:#7dd3fc">+10</span>
+              <span class="trim-val" id="trim-val">0</span>
+            </div>
+            <div class="trim-status" style="margin-top:4px">
+              <div class="trim-dot" id="trim-dot"></div>
+              <span id="trim-label-txt" style="font-size:11px"></span>
+              <span id="trim-bonus-txt" style="font-weight:700;margin-left:4px;font-size:12px"></span>
+            </div>
+          </div>
+          <div style="flex:1">
+            <div style="font-size:11px;color:#7dd3fc;margin-bottom:2px"><span id="opt-label"></span></div>
+            <div style="font-size:11px;color:#7dd3fc">Clique carte → énergie boost</div>
+          </div>
         </div>
       </div>
 
-      <div style="width:1px;background:#164e63;align-self:stretch;margin:0 4px"></div>
-
-      <!-- Trim -->
-      <div class="trim-panel">
-        <div class="trim-label">🎚️ Trim de voile</div>
-        <div class="trim-slider-row">
-          <span style="font-size:11px;color:#7dd3fc">-10</span>
-          <input type="range" class="trim-slider" id="trim-slider" min="-10" max="10" value="0" step="1" oninput="handleTrim(this.value)">
-          <span style="font-size:11px;color:#7dd3fc">+10</span>
-          <span class="trim-val" id="trim-val">0</span>
-        </div>
-        <div class="trim-status">
-          <div class="trim-dot" id="trim-dot"></div>
-          <span id="trim-label-txt"></span>
-          <span id="trim-bonus-txt" style="font-weight:700;margin-left:4px"></span>
-        </div>
-      </div>
-
-      <div style="width:1px;background:#164e63;align-self:stretch;margin:0 4px"></div>
-
-      <!-- Boost -->
-      <div style="flex:1;min-width:160px">
-        <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px">
-          <span>⚡ Énergie boost</span><span id="epct">0%</span>
-        </div>
-        <div class="energy-bg"><div class="energy-fill" id="ebar" style="width:0%"></div></div>
-        <div style="font-size:11px;color:#7dd3fc;margin-top:4px">Clique sur la carte pour charger</div>
-      </div>
-      <button class="boost-btn locked" id="boost-btn" onclick="handleBoost()">⚡ Boost</button>
-      <button class="btn btn-sm btn-gray" onclick="if(confirm('Quitter la course ?')) exitRace()">🚪 Quitter</button>
-      <button class="btn btn-sm" style="background:#7c3aed" onclick="forceFinishRace()" title="Force la fin de course si elle est bloquée">🏁 Terminer</button>
     </div>
   </div>
 
@@ -1675,6 +1697,20 @@ function submitCreateRace() {
   closeCreateRace();
   toast(`✅ "${name}" créée ! Départ dans ${fmtCD(delay)}`);
   renderDashboard();
+}
+
+let hudOpen = false;
+function toggleHud() {
+  hudOpen = !hudOpen;
+  document.getElementById('hud-detail').classList.toggle('open', hudOpen);
+  document.getElementById('hud-arrow').textContent = hudOpen ? '▲' : '▼';
+}
+
+let ctrlOpen = false;
+function toggleControls() {
+  ctrlOpen = !ctrlOpen;
+  document.getElementById('ctrl-detail').style.display = ctrlOpen ? 'block' : 'none';
+  document.getElementById('ctrl-arrow').textContent = ctrlOpen ? '⚙️ ▲' : '⚙️ ▼';
 }
 
 function manualsave() {
